@@ -1,19 +1,5 @@
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" alt="Creator Intelligence Platform Banner" width="100%" />
-
-  <h1>Creator Intelligence Platform</h1>
-  <p><strong>Predictive AI Strategy & Workflow Engine for Top-Tier Content Creators</strong></p>
-
-  <p>
-    <a href="https://dqkouk8ltf860.cloudfront.net" target="_blank">
-      <img src="https://img.shields.io/badge/Live_Demo-Online-2ea44f?style=for-the-badge&logo=amazon-aws" alt="Live Demo" />
-    </a>
-    <img src="https://img.shields.io/badge/AWS-Serverless-FF9900?style=for-the-badge&logo=amazonaws" alt="AWS Serverless" />
-    <img src="https://img.shields.io/badge/Amazon-Bedrock-00A4A6?style=for-the-badge&logo=amazonaws" alt="Amazon Bedrock" />
-  </p>
-</div>
-
----
+# Creator Intelligence Platform
+**Predictive AI Strategy & Workflow Engine for Top-Tier Content Creators**
 
 ## 🚀 The Vision
 
