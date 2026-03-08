@@ -1,0 +1,206 @@
+import 'dotenv/config';
+import express from 'express';
+import { createServer as createViteServer } from 'vite';
+import { initDb, getPosts, addPost, getProfile, updateProfile } from './src/server/db.ts';
+import { analyzeCreatorHistory, predictPerformance, adaptContent, chatWithCreatorAI } from './src/server/aws.ts';
+
+console.log('Starting server...');
+
+const app = express();
+const PORT = 3000;
+
+try {
+  // Initialize DB
+  console.log('Initializing database...');
+  initDb();
+  console.log('Database initialized.');
+} catch (error) {
+  console.error('Failed to initialize database:', error);
+  process.exit(1);
+}
+
+app.use(express.json());
+
+// API Routes
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { message, history } = req.body;
+    const response = await chatWithCreatorAI(message, history || []);
+    if (response) {
+      res.json({ response });
+    } else {
+      res.status(500).json({ error: 'Chat failed' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Chat failed' });
+  }
+});
+
+import { analyzeCreatorHistory, predictPerformance, adaptContent, chatWithCreatorAI } from './src/server/gemini.ts';
+
+// ... existing imports
+
+app.post('/api/summarize', async (req, res) => {
+  try {
+    const { contents } = req.body;
+    if (!contents || !Array.isArray(contents)) {
+      return res.status(400).json({ error: 'Invalid contents' });
+    }
+    
+    const prompt = `
+      Summarize the following inputs into a cohesive content summary.
+      
+      Inputs:
+      ${contents.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+      
+      Keep it concise and actionable for a content creator.
+    `;
+
+    const response = await chatWithCreatorAI(prompt, []);
+    if (response) {
+      res.json({ summary: response });
+    } else {
+      res.status(500).json({ error: 'Summarization failed' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Summarization failed' });
+  }
+});
+
+app.post('/api/generate', async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    const response = await chatWithCreatorAI(prompt, []);
+    if (response) {
+      res.json({ content: response });
+    } else {
+      res.status(500).json({ error: 'Generation failed' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Generation failed' });
+  }
+});
+
+app.get('/api/posts', (req, res) => {
+  try {
+    const posts = getPosts();
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch posts' });
+  }
+});
+
+app.post('/api/posts', (req, res) => {
+  try {
+    const { content, platform, likes, comments, shares, views, timestamp, topic } = req.body;
+    addPost({ content, platform, likes, comments, shares, views, timestamp, topic });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to add post' });
+  }
+});
+
+app.get('/api/profile', (req, res) => {
+  try {
+    const profile = getProfile();
+    if (profile) {
+      res.json({
+        ...profile,
+        top_topics: JSON.parse(profile.top_topics),
+        performance_patterns: JSON.parse(profile.performance_patterns)
+      });
+    } else {
+      res.json(null);
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
+app.post('/api/analyze', async (req, res) => {
+  try {
+    const posts = getPosts();
+    const analysis = await analyzeCreatorHistory(posts);
+    
+    if (analysis) {
+      updateProfile({
+        style_description: analysis.style_description,
+        top_topics: JSON.stringify(analysis.top_topics),
+        performance_patterns: JSON.stringify(analysis.performance_patterns),
+        last_updated: new Date().toISOString()
+      });
+      res.json(analysis);
+    } else {
+      res.status(500).json({ error: 'Analysis failed' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Analysis failed' });
+  }
+});
+
+app.post('/api/predict', async (req, res) => {
+  try {
+    const { idea } = req.body;
+    const profileDB = getProfile();
+    
+    if (!profileDB) {
+      return res.status(400).json({ error: 'No profile found. Please analyze history first.' });
+    }
+
+    const profile = {
+      ...profileDB,
+      top_topics: JSON.parse(profileDB.top_topics),
+      performance_patterns: JSON.parse(profileDB.performance_patterns)
+    };
+
+    const prediction = await predictPerformance(idea, profile);
+    res.json(prediction);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Prediction failed' });
+  }
+});
+
+app.post('/api/adapt', async (req, res) => {
+  try {
+    const { idea } = req.body;
+    const profileDB = getProfile();
+    
+    if (!profileDB) {
+      return res.status(400).json({ error: 'No profile found. Please analyze history first.' });
+    }
+
+    const profile = {
+      ...profileDB,
+      top_topics: JSON.parse(profileDB.top_topics),
+      performance_patterns: JSON.parse(profileDB.performance_patterns)
+    };
+
+    const adaptation = await adaptContent(idea, profile);
+    res.json(adaptation);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Adaptation failed' });
+  }
+});
+
+// Vite Middleware
+if (process.env.NODE_ENV !== 'production') {
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: 'spa',
+  });
+  app.use(vite.middlewares);
+}
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});

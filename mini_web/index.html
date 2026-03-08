@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creator Intelligence Platform</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Creator Engine 🚀</h1>
+        <p>AI-powered content strategy and idea generation</p>
+        
+        <div class="form-group">
+            <label for="topic">Niche / Topic</label>
+            <input type="text" id="topic" placeholder="e.g., AI agents, Tech, Finance" required>
+        </div>
+
+        <div class="form-group">
+            <label for="platform">Platform</label>
+            <select id="platform">
+                <option value="youtube">YouTube</option>
+                <option value="twitter">Twitter / X</option>
+                <option value="instagram">Instagram</option>
+            </select>
+        </div>
+
+        <button id="generateBtn">Generate AI Ideas</button>
+
+        <div id="loading" class="hidden">
+            <div class="spinner"></div> Generating ideas with Amazon Bedrock...
+        </div>
+
+        <div id="responseArea" class="hidden">
+            <h2>Generated Strategy</h2>
+            <div id="ideasContent"></div>
+            <p id="textContent"></p>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

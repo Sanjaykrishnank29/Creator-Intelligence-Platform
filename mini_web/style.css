@@ -1,0 +1,136 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: #f4f7f6;
+    color: #333;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    margin: 0;
+}
+
+.container {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    max-width: 600px;
+    width: 100%;
+    margin-top: 40px;
+}
+
+h1 {
+    color: #1a1a1a;
+    margin-top: 0;
+    margin-bottom: 5px;
+}
+
+p {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #444;
+}
+
+input[type="text"], select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+input[type="text"]:focus, select:focus {
+    border-color: #0066cc;
+    outline: none;
+}
+
+button {
+    background-color: #0066cc;
+    color: white;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: #0052a3;
+}
+
+button:disabled {
+    background-color: #99c2ff;
+    cursor: not-allowed;
+}
+
+.hidden {
+    display: none !important;
+}
+
+#loading {
+    margin-top: 25px;
+    color: #0066cc;
+    font-weight: bold;
+    text-align: center;
+}
+
+#responseArea {
+    margin-top: 30px;
+    background: #f8fbff;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e1edff;
+}
+
+#responseArea h2 {
+    margin-top: 0;
+    font-size: 1.2em;
+    color: #0066cc;
+}
+
+.idea-card {
+    background: white;
+    margin-bottom: 15px;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #eee;
+}
+
+.idea-card:last-child {
+    margin-bottom: 0;
+}
+
+.idea-title {
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-bottom: 8px;
+    color: #2c3e50;
+}
+
+.idea-reason {
+    color: #555;
+    font-size: 0.95em;
+    line-height: 1.4;
+}
+
+#textContent {
+    margin-top: 15px;
+    color: #444;
+    font-style: italic;
+    border-top: 1px solid #eee;
+    padding-top: 15px;
+}
