@@ -1,60 +1,191 @@
 # Creator Intelligence Platform
-**Predictive AI Strategy & Workflow Engine for Top-Tier Content Creators**
 
-## 🚀 The Vision
+**AI-Driven Predictive Content Strategy System for Digital Creators**
 
-In the highly competitive world of digital content creation, consistency and viral mechanics are everything. The **Creator Intelligence Platform** is a load-bearing AI infrastructure that acts as a data-driven Chief Strategy Officer for YouTubers, Instagrammers, and X/Twitter creators.
+<p>
+  <a href="https://dqkouk8ltf860.cloudfront.net" target="_blank">
+    <img src="https://img.shields.io/badge/Live_Demo-Online-2ea44f?style=for-the-badge&logo=amazon-aws" alt="Live Demo" />
+  </a>
+  <img src="https://img.shields.io/badge/AWS-Serverless-FF9900?style=for-the-badge&logo=amazonaws" alt="AWS Serverless" />
+  <img src="https://img.shields.io/badge/Amazon-Bedrock-00A4A6?style=for-the-badge&logo=amazonaws" alt="Amazon Bedrock" />
+</p>
 
-Instead of generic ChatGPT prompts, our platform syncs directly with live YouTube APIs and global trend data to output **predictive engagement scores**, **cross-platform AI content generation**, and a **visual node-based workflow engine**.
+## 🚀 Overview
 
----
+The Creator Intelligence Platform is an AI-powered decision support system designed to help digital content creators plan, optimize, and evaluate content before publishing.
 
-## 🛠️ Core Capabilities
+Instead of relying on guesswork, the platform analyzes:
+- Creator historical performance
+- Real-time trend signals
+- Platform-specific engagement patterns
 
-- **Predictive Viral Scoring:** Analyzes your content payload against your historical hit rate and current trends, using Amazon Bedrock to output a localized out-of-100 prediction score with actionable improvement tips before you hit publish.
-- **Creator Engine (Canvas):** A highly interactive node-based visual workflow editor. Drop in thoughts, synthesize them via AI into video scripts, and adapt those single scripts into Instagram captions, LinkedIn posts, and X/Twitter threads simultaneously.
-- **Trend-Aware Generation:** AI ideation isn’t done in a vacuum. The *Idea Generator* maps Real-Time NewsAPI trends directly to your personalized Creator Profile to synthesize highly-relevant content ideas.
-- **Live Performance Dashboard:** Real-time analytics hooked into YouTube's live API to monitor view velocity, engagement rates, and platform distributions.
+Using this data, the system generates predictive engagement scores, personalized content ideas, and platform-optimized scripts. Unlike generic text generation tools, this system combines creator-specific data, trend signals, and predictive scoring to generate personalized content strategies.
 
----
+## 🎯 Problem Statement
 
-## ☁️ AWS Architecture Stack (100% Serverless)
+Digital creators often struggle with:
+- Choosing the right content ideas
+- Understanding changing platform algorithms
+- Adapting content across multiple platforms
+- Predicting content performance before publishing
 
-Built to aggressively optimize for speed, reliability, and **near-zero idle AWS costs**, the platform is completely serverless.
+Most AI tools generate generic content but do not analyze creator-specific data or trends. This project solves that problem by combining creator analytics + trend intelligence + AI reasoning.
 
-### The Compute & Data Layer
-*   **Frontend Hosting:** AWS S3 buckets distributed globally via **AWS CloudFront** (Sub 50ms TTFB).
-*   **API Routing:** **Amazon API Gateway** manages and throttles traffic to backend execution.
-*   **Compute:** 7 isolated **AWS Lambda** (Python 3) functions running business logic (Ideation, Prediction, History Sync, Enhancer).
-*   **State & Caching:** 5 **Amazon DynamoDB** tables tracking Creator Profiles, Content History, and acting as a high-speed SHA-256 Response Cache.
+## � Key Features
 
-### The AI Layer (Amazon Bedrock)
-The entire AI workload is powered heavily by **Amazon Nova Lite (`amazon.nova-lite-v1:0`)** via Amazon Bedrock. 
-*   *Why Nova Lite?* For content generation and structural text synthesis tasks, Nova Lite offers extreme sub-2-second generation speed and a highly-optimized cost ratio, cleanly handling our 800-token limited context windows.
+### 1️⃣ Predictive Content Scoring
+Analyzes creator content topics, historical engagement patterns, and current trend signals to generate an out-of-100 predicted engagement score before publishing. This helps creators evaluate content potential early.
 
-> *Note: For deep cost-optimization, we eliminated expensive Titan Embedding API calls previously used for vector matching, replacing them with a custom high-speed lambda string-overlap algorithm, reducing idea generation costs by 80%.*
+### 2️⃣ AI Content Ideation Engine
+The system generates personalized content ideas using global trends, creator niche, and past successful content.
 
----
+### 3️⃣ Platform-Optimized Content Generation
+One content idea can be automatically transformed into YouTube video scripts, Instagram captions, LinkedIn posts, and X/Twitter threads. Each version adapts to platform-specific formats.
 
-## 📂 Hackathon Evaluation Notes & Structural Integrity
+### 4️⃣ Trend Intelligence Pipeline
+The system continuously collects trending signals from News APIs, social media discussions, and topic popularity signals. These signals influence the idea generation engine.
 
-This repository has been fully audited, cleaned, and optimized for judge evaluation. 
+### 5️⃣ Creator Performance Dashboard
+Creators can monitor view velocity, engagement patterns, trend alignment, and content success history.
 
-*   **AWS Compliant:** The application strictly leverages foundational AWS services (Lambda, DynamoDB, S3, API Gateway) and places **Amazon Bedrock** at the core of its load-bearing operations.
-*   **Cost Optimized Architecture:** Real-world safeguards are implemented. Bedrock outputs are hard-capped (`maxTokens: 800`), redundant backend DynamoDB scans are bypassed via in-memory Lambda caching spanning short-life container re-use, and all exact-match LLM generations are intercepted by a DynamoDB cache saving up to $0.01 per repeated call.
-*   **Well-Architected:** CI/CD ready deployment scripts are isolated in the `/scripts` directory, while full terraform architectural infrastructure blueprints are mapped.
+### 6️⃣ Creator Engine (Canvas)
+A visual content workflow interface that allows creators to transform raw ideas into structured scripts and adapt them across multiple platforms.
 
----
+## 🏗️ System Architecture
 
-## 🌐 Try the Live Prototype
+The platform is built using a serverless AWS architecture designed for scalability and low operational cost.
 
-The application is deployed entirely on AWS infrastructure and is live right now:
-**[👉 Launch Creator Intelligence Platform](https://dqkouk8ltf860.cloudfront.net)**
+### Frontend Layer
+- **Amazon S3** – static web hosting
+- **Amazon CloudFront** – global content delivery
 
-*(Note: While fully functional, certain historical synchronization features are locked to the primary `techwithtim` profile seed data for the duration of the hackathon judging period to guarantee API quota limits are not exceeded).*
+### API Layer
+- **Amazon API Gateway** – API routing
 
----
+### Compute Layer
+- **AWS Lambda** – serverless business logic
+- Multiple AWS Lambda functions handling independent tasks such as ideation, prediction, content enhancement, and trend ingestion.
+  - `idea_generator`
+  - `prediction_api`
+  - `trend_collector`
+  - `feedback_ingest`
+  - `content_enhancer`
 
-<div align="center">
-  <i>Built with ❤️ for the AWS Hackathon Prototype Submission</i>
-</div>
+### Database Layer
+- **Amazon DynamoDB**
+- Tables used:
+  - `CreatorProfiles`
+  - `CreatorContentHistory`
+  - `TrendSignals`
+  - `PredictionCache`
+
+### AI Layer
+- **Amazon Bedrock**
+- Models used: **Amazon Nova Lite**
+- The model is used for: idea generation, engagement prediction reasoning, script creation.
+> *Nova Lite was selected due to its low latency and cost efficiency for text synthesis tasks such as idea generation and script structuring.*
+
+## 📊 Data Pipeline
+
+### Trend Intelligence Pipeline
+**Data sources:** News API, Google Trends, Social media signals
+**Pipeline flow:**
+`Trend Sources → Lambda Collector → S3 Raw Trend Storage → Processing (SageMaker) → DynamoDB TrendSignals`
+
+### Creator History Pipeline
+**Pipeline flow:**
+`Creator APIs → Lambda Sync → DynamoDB CreatorContent → S3 Dataset`
+
+This historical data is used for personalized AI predictions.
+> *Note: For the hackathon prototype, historical synchronization currently uses seed data from the TechWithTim channel to ensure stable API quotas during evaluation.*
+
+## ⚙️ AI Workflow
+
+Content generation workflow:
+> `Creator Input → Idea Generator (Bedrock) → Content Enhancer → Prediction Engine → Trend Alignment → Final Recommendation`
+
+The AI layer performs real reasoning tasks instead of simple text generation.
+
+## � Cost Optimization Strategy
+
+The system includes multiple safeguards to reduce LLM cost.
+
+### DynamoDB Response Cache
+LLM responses are cached using SHA-256 input hashing.
+
+**Workflow:**
+`Request → Check DynamoDB Cache → If Hit → return cached response | If Miss → call Bedrock`
+
+**Benefits:** reduces repeated model calls, reduces Bedrock cost, improves response speed.
+
+### Lightweight Heuristic Matching
+To reduce cost during the hackathon prototype phase, semantic similarity matching was implemented using a lightweight keyword overlap heuristic instead of embedding-based vector search.
+
+## ☁️ AWS Services Used
+
+| Service | Purpose |
+| :--- | :--- |
+| **Amazon S3** | Static hosting & dataset storage |
+| **CloudFront** | CDN for frontend |
+| **Amazon API Gateway** | API management |
+| **AWS Lambda** | Serverless compute |
+| **Amazon DynamoDB** | NoSQL database |
+| **Amazon Bedrock** | AI model inference |
+| **Amazon SageMaker** | Trend signal processing |
+| **Amazon EventBridge** | Scheduled pipelines |
+
+## 🧪 Prototype Scope
+
+The prototype demonstrates the core user flow of the Creator Intelligence system:
+1. Creator provides a content idea
+2. AI generates a structured script
+3. AI predicts engagement score
+4. Trend signals are incorporated
+5. Content is adapted for multiple platforms
+
+## 🌐 Live Prototype
+
+**Live demo:** [https://dqkouk8ltf860.cloudfront.net](https://dqkouk8ltf860.cloudfront.net)
+
+## 🧑‍💻 Running the Project
+
+**1️⃣ Clone the repository**
+```bash
+git clone https://github.com/Sanjaykrishnank29/Creator-Intelligence-Platform.git
+cd Creator-Intelligence-Platform
+```
+
+**2️⃣ Configure AWS credentials**
+```bash
+aws configure
+```
+
+**3️⃣ Deploy infrastructure**
+```bash
+cd infra
+terraform init
+terraform apply
+```
+
+**4️⃣ Start frontend locally**
+```bash
+cd ..
+npm install
+npm run dev
+```
+*(Optionally deploy static files to S3 and enable CloudFront distribution).*
+
+## 🔮 Future Roadmap
+
+Future improvements include:
+- Real-time algorithm change detection
+- Deeper creator behavior modeling
+- Multi-agent AI strategy engine
+- Automated publishing recommendations
+
+## ❤️ Built For
+
+**AI for Bharat Hackathon**  
+**Track:** AI for Media, Content & Digital Experiences  
+
+*The repository is structured to simplify evaluation and demonstrate architectural clarity for the hackathon judges.*
