@@ -4,6 +4,9 @@ import os
 import time
 import hashlib
 import logging
+import random
+import urllib.request
+import urllib.parse
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -14,40 +17,63 @@ dynamodb = boto3.resource("dynamodb")
 TRENDS_TABLE = os.environ["TRENDS_TABLE"]
 CONTENT_TABLE = os.environ["CONTENT_TABLE"]
 CACHE_TABLE = os.environ["CACHE_TABLE"]
-
-# ─── In-memory trend cache (reuses Lambda container for 5 min) ─────────────────
-_trends_cache: dict = {"data": None, "expires": 0.0}
-
-
-def get_trends_cached():
-    """Get trends from DynamoDB with 5-minute in-memory cache. Eliminates repeated scans."""
-    now = time.time()
-    if _trends_cache["data"] is not None and now < _trends_cache["expires"]:
-        logger.info("Trend cache hit (in-memory)")
-        return _trends_cache["data"]
-    table = dynamodb.Table(TRENDS_TABLE)
-    items = table.scan(Limit=8).get("Items", [])
-    _trends_cache["data"] = items
-    _trends_cache["expires"] = now + 300  # 5-minute TTL
-    return items
+PROFILES_TABLE = os.environ.get("PROFILES_TABLE", "creator-intelligence-dev-CreatorProfiles")
+NEWS_API_KEY = os.environ.get("NEWS_API_KEY", "")
 
 
-def keyword_overlap(a: str, b: str) -> float:
-    """Free keyword-based similarity — replaces expensive Titan Embeddings."""
-    wa = set(a.lower().split())
-    wb = set(b.lower().split())
-    if not wa:
-        return 0.0
-    return len(wa & wb) / len(wa)
+def fetch_live_news(niche: str, page_size: int = 8) -> list[str]:
+    """Fetch LIVE headlines from NewsAPI using the creator's niche as a query.
+    Returns a list of article title strings."""
+    if not NEWS_API_KEY:
+        logger.warning("NEWS_API_KEY not set — skipping live news fetch")
+        return []
+
+    query = urllib.parse.quote(niche[:50])
+    url = (
+        f"https://newsapi.org/v2/everything"
+        f"?q={query}&language=en&sortBy=publishedAt"
+        f"&pageSize={page_size}&apiKey={NEWS_API_KEY}"
+    )
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        articles = data.get("articles", [])
+        headlines = [a["title"] for a in articles if a.get("title") and "[Removed]" not in a["title"]]
+        logger.info(f"Fetched {len(headlines)} live headlines for niche: {niche!r}")
+        return headlines
+    except Exception as e:
+        logger.error(f"NewsAPI fetch failed: {e}")
+        return []
+
+
+def get_creator_niche(creator_id: str) -> str:
+    """Read niche from the creator's DynamoDB profile. Falls back to 'General Tech'."""
+    try:
+        table = dynamodb.Table(PROFILES_TABLE)
+        item = table.get_item(Key={"creator_id": creator_id}).get("Item", {})
+        # Try common field names the profile might use
+        niche = (
+            item.get("niche")
+            or item.get("primary_niche")
+            or item.get("category")
+            or item.get("content_category")
+            or "General Tech"
+        )
+        logger.info(f"Creator {creator_id!r} niche → {niche!r}")
+        return str(niche)
+    except Exception as e:
+        logger.error(f"Could not read creator profile: {e}")
+        return "General Tech"
 
 
 def invoke_bedrock(
     prompt: str, model_id: str = "amazon.nova-lite-v1:0", max_tokens: int = 800
 ) -> str:
-    """Invoke Bedrock Nova Lite with exponential backoff."""
+    """Invoke Bedrock Nova Lite with temperature for varied outputs."""
     body = json.dumps(
         {
-            "inferenceConfig": {"maxTokens": max_tokens},
+            "inferenceConfig": {"maxTokens": max_tokens, "temperature": 0.9},
             "messages": [{"role": "user", "content": [{"text": prompt}]}],
         }
     )
@@ -61,9 +87,7 @@ def invoke_bedrock(
                 accept="application/json",
                 contentType="application/json",
             )
-            return json.loads(resp["body"].read())["output"]["message"]["content"][0][
-                "text"
-            ]
+            return json.loads(resp["body"].read())["output"]["message"]["content"][0]["text"]
         except Exception as e:
             logger.error(f"Bedrock attempt {attempt + 1} failed: {e}")
             if attempt == len(delays):
@@ -80,72 +104,86 @@ def lambda_handler(event, context):
         )
 
         creator_id = body.get("creator_id", "techwithtim")
-        niche = body.get("niche") or body.get("topic", "General Tech")
         platform = body.get("platform", "YouTube")
+        bust_cache = body.get("bust_cache", False)
 
-        # ── DynamoDB response cache check (no Bedrock call if same niche+platform) ──
-        cache_key = hashlib.sha256(
-            f"{niche.strip().lower()}:{platform.lower()}".encode()
-        ).hexdigest()
+        # ── Step 1: Get creator's real niche from DynamoDB profile ──────────────
+        # Use niche from request body only if explicitly provided and NOT a generic placeholder
+        niche_override = body.get("niche", "").strip()
+        ignored_placeholders = (
+            "Generate a creative content idea",
+            "AI & Tech Trends",
+            "Click regenerate to create content...",
+            "New ai-note"
+        )
+        if niche_override and niche_override not in ignored_placeholders:
+            niche = niche_override
+        else:
+            niche = get_creator_niche(creator_id)
+
+        logger.info(f"Generating ideas for niche={niche!r}, platform={platform!r}, bust_cache={bust_cache}")
+
+        # ── Step 2: Cache check (skip if bust_cache=True — i.e. manual regenerate) ──
+        cache_key = hashlib.sha256(f"{niche.strip().lower()}:{platform.lower()}".encode()).hexdigest()
         cache_table = dynamodb.Table(CACHE_TABLE)
-        cached = cache_table.get_item(Key={"input_hash": cache_key}).get("Item")
-        if cached:
-            logger.info("DynamoDB cache hit — skipping Bedrock call")
-            return {
-                "statusCode": 200,
-                "headers": {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*",
-                },
-                "body": json.dumps(
-                    {"ideas": json.loads(cached["response"]), "cached": True}
-                ),
-            }
 
-        # ── Keyword-based trend matching (replaces 10 Titan Embed API calls) ──────────
-        trends = [t.get("topic", "") for t in get_trends_cached() if t.get("topic")]
+        if not bust_cache:
+            cached = cache_table.get_item(Key={"input_hash": cache_key}).get("Item")
+            if cached:
+                logger.info("DynamoDB cache hit — returning cached ideas")
+                return {
+                    "statusCode": 200,
+                    "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+                    "body": json.dumps({"ideas": json.loads(cached["response"]), "cached": True}),
+                }
+        else:
+            logger.info("bust_cache=True — fetching fresh content")
 
-        from boto3.dynamodb.conditions import Key as DKey
+        # ── Step 3: Fetch LIVE news from NewsAPI using creator's niche ──────────
+        live_headlines = fetch_live_news(niche)
 
-        content_table = dynamodb.Table(CONTENT_TABLE)
-        history = [
-            i.get("title", "")
-            for i in content_table.query(
-                KeyConditionExpression=DKey("creator_id").eq(creator_id), Limit=8
-            ).get("Items", [])
-            if i.get("title")
+        # ── Step 4: Build a unique prompt with live news as context ─────────────
+        angles = [
+            "Focus on a technical deep-dive into a specific software feature.",
+            "Focus on an industry-shifting technical breakthrough.",
+            "Focus on a step-by-step 'Hello World' to production guide.",
+            "Focus on 'The State of [Niche] in 2026' — predictions and reality.",
+            "Focus on why certain technical paradigms are failing and what's next.",
+            "Focus on a critical comparison between two leading technologies in the niche.",
+            "Focus on a myth-busting technical analysis of common misconceptions.",
+            "Focus on an expert-level career path or advanced skill-building strategy.",
+            "Focus on a post-mortem/root cause analysis of a well-known technical failure.",
+            "Focus on how AI is fundamentally changing workflows within this specific niche.",
         ]
+        angle_directive = random.choice(angles)
 
-        # Score pairs with free keyword matching — no Bedrock Titan calls
-        if trends and history:
-            matches = sorted(
-                [
-                    {"trend": t, "video": h, "score": keyword_overlap(t, h)}
-                    for t in trends[:5]
-                    for h in history[:5]
-                ],
-                key=lambda x: x["score"],
-                reverse=True,
-            )[:3]
-            context_str = "\n".join(
-                [f"- {m['trend']} (related: {m['video']})" for m in matches]
-            )
+        base_prompt = (
+            f"You are an elite {platform} content strategist and subject matter expert.\n\n"
+            f"PRIMARY OBJECTIVE: Generate 5 UNIQUE, high-value video ideas for the niche: {niche}.\n"
+            f"STRICT ADHERENCE: All ideas MUST be directly related to {niche}. Do not provide generic viral advice.\n"
+        )
+
+        if live_headlines:
+            news_block = "\n".join(f"- {h}" for h in live_headlines[:6])
             prompt = (
-                f"You are an elite YouTube strategist. Generate 5 viral video ideas for the niche: "
-                f'"{niche}" on {platform}.\n'
-                f"Use these current trends as inspiration:\n{context_str}\n\n"
+                f"{base_prompt}\n"
+                f"LATEST LIVE NEWS (Context):\n{news_block}\n\n"
+                f"CREATIVE ANGLE FOR THIS BATCH: {angle_directive}\n\n"
+                f"Generate ideas that are INSPIRED by the news above but tailored for a {niche} audience.\n\n"
                 f'Return ONLY a JSON array: [{{"title":"...","explanation":"...","performance_reasoning":"..."}}]'
             )
         else:
             prompt = (
-                f'You are an elite YouTube strategist. Generate 5 viral video ideas for: "{niche}" on {platform}.\n'
+                f"{base_prompt}\n"
+                f"Note: Current news could not be fetched. Rely on your internal knowledge of the latest developments and trends in {niche}.\n\n"
+                f"CREATIVE ANGLE FOR THIS BATCH: {angle_directive}\n\n"
                 f'Return ONLY a JSON array: [{{"title":"...","explanation":"...","performance_reasoning":"..."}}]'
             )
 
-        # ── Single Bedrock call (down from 11 calls per request) ────────────────────
+
+        # ── Step 5: Single Bedrock call ─────────────────────────────────────────
         content = invoke_bedrock(prompt, max_tokens=800)
 
-        # Parse JSON from response
         cleaned = content.strip()
         if "```json" in cleaned:
             cleaned = cleaned.split("```json")[1].split("```")[0].strip()
@@ -155,35 +193,22 @@ def lambda_handler(event, context):
         try:
             ideas = json.loads(cleaned)
         except Exception:
-            ideas = [
-                {
-                    "title": "Content Idea",
-                    "explanation": content[:300],
-                    "performance_reasoning": "",
-                }
-            ]
+            ideas = [{"title": "Content Idea", "explanation": content[:300], "performance_reasoning": ""}]
 
-        # Store in cache for next identical request
-        cache_table.put_item(
-            Item={"input_hash": cache_key, "response": json.dumps(ideas)}
-        )
+        # Store in cache only for non-busted calls (to reuse for Generate page)
+        if not bust_cache:
+            cache_table.put_item(Item={"input_hash": cache_key, "response": json.dumps(ideas)})
 
         return {
             "statusCode": 200,
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-            },
-            "body": json.dumps({"ideas": ideas}),
+            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+            "body": json.dumps({"ideas": ideas, "niche_used": niche}),
         }
 
     except Exception as e:
         logger.error(f"idea_generator failed: {e}", exc_info=True)
         return {
             "statusCode": 500,
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-            },
-            "body": json.dumps({"error": str(e)}),
+            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+            "body": json.dumps({"error": "Internal server error"}),
         }

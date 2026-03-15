@@ -259,11 +259,14 @@ export default function CreatorEngine() {
         
         setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, isLoading: false, content: data.summary || data.response || 'Failed to generate' } } : n));
       } else if (node.data.type === 'ai-note') {
-        const prompt = node.data.context || "Generate a creative content idea";
+        const rawNiche = node.data.context?.trim() || node.data.content?.trim() || '';
+        const isPlaceholder = rawNiche.includes('Click regenerate') || rawNiche.includes('New ai-note') || rawNiche === 'Enhanced Prompts & Ideas';
+        const niche = isPlaceholder ? '' : rawNiche;
+        
         const res = await fetch(apiUrl('/api/generate'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ niche: prompt, platform: 'YouTube', creator_id: 'techwithtim' })
+          body: JSON.stringify({ niche, platform: 'YouTube', creator_id: 'techwithtim', bust_cache: true })
         });
         const raw = await res.json();
         // Unwrap API Gateway envelope + extract first idea or ideas text
